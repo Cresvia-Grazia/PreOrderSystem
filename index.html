@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Book Pre-order — Pick-up Only</title>
+<style>
+  :root{--accent:#0b6cf6;--muted:#6b7280;--success:#28a745;--success-bg:#e6f4ea}
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:#f4f6f9;margin:0;color:#0f172a}
+  .wrap{max-width:1200px;margin:28px auto;padding:18px}
+  header{display:flex;align-items:center;justify-content:space-between}
+  h1{margin:0;font-size:1.4rem}
+  .subtitle{color:var(--muted);font-size:0.95rem}
+  .layout{display:grid;grid-template-columns:1fr 380px;gap:18px;margin-top:18px}
+  @media(max-width:980px){.layout{grid-template-columns:1fr}}
+  .card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.06)}
+
+  /* catalog */
+  .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .search{flex:1}
+  input[type=search], select, input[type=text]{padding:10px;border-radius:8px;border:1px solid #e6eef8;width:100%}
+  .filters{display:flex;gap:10px;align-items:center}
+  .book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:12px}
+  .book-card{border:1px solid #eef2ff;border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .book-card .meta{display:flex;justify-content:space-between;align-items:center}
+  .book-card small{color:var(--muted)}
+  .price{font-weight:700}
+
+  /* sidebar */
+  .cart{display:flex;flex-direction:column;gap:12px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid #eef2ff;text-align:left}
+  th{font-weight:600}
+  .totals{display:flex;justify-content:space-between;font-weight:700;padding:8px 0}
+  .btn{display:inline-block;padding:10px 12px;border-radius:10px;background:var(--accent);color:#fff;border:none;cursor:pointer}
+  .btn:hover{background:#0056b3}
+  .ghost{background:#fff;color:var(--accent);border:1px solid #dbeafe}
+  .small{font-size:0.92rem;color:var(--muted)}
+
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:9999}
+  .modal .box{background:#fff;padding:22px;border-radius:12px;max-width:720px;width:100%}
+  .modal h2{margin-top:0}
+  .hidden{display:none}
+
+  /* confirmation box */
+  #confirmationBox{background:var(--success-bg);border:1px solid var(--success);padding:16px;border-radius:10px;color:var(--success);font-weight:500;margin-top:12px;}
+  #confirmationBox button{margin-top:12px;background:var(--accent);color:#fff;padding:10px 16px;font-size:1rem;border-radius:8px;border:none;cursor:pointer}
+  #confirmationBox button:hover{background:#0056b3}
+
+  /* small helpers */
+  .muted{color:var(--muted);font-size:0.95rem}
+  .center{display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Book Pre-order <small class="subtitle">(Pick-up only · Payment first)</small></h1>
+      <div class="small muted">Please read the disclaimer first. You will be redirected to complete the form after reservation.</div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- CATALOG -->
+    <section class="card">
+      <div class="controls" style="margin-bottom:8px">
+        <div class="filters search" style="min-width:220px">
+          <label class="small">Search (Title)</label>
+          <div><input id="searchTitle" type="search" placeholder="Search title..." /></div>
+        </div>
+
+        <div class="filters">
+          <label class="small">Author</label>
+          <div style="width:200px"><select id="filterAuthor"><option value="">All authors</option></select></div>
+        </div>
+
+        <div class="filters">
+          <label class="small">Genre</label>
+          <div style="width:200px"><select id="filterGenre"><option value="">All genres</option></select></div>
+        </div>
+      </div>
+
+      <div id="booksGrid" class="book-grid" aria-live="polite">Loading books…</div>
+    </section>
+
+    <!-- CART/SIDEBAR -->
+    <aside class="card">
+      <div class="cart">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3 style="margin:0">Selected books</h3>
+          <button id="clearCart" class="btn ghost">Clear</button>
+        </div>
+
+        <div id="cartContent">
+          <table id="cartTable" aria-live="polite"><thead><tr><th>Title</th><th style="width:70px">Qty</th><th style="text-align:right">Subtotal</th></tr></thead><tbody></tbody></table>
+
+          <div class="totals"><div>Total Qty</div><div id="totalQty">0</div></div>
+          <div class="totals"><div>Total Cost</div><div id="grandTotal">₱0.00</div></div>
+
+          <div class="small">Payment options: GCash / PayMaya<br/>Account name: <strong>cherel</strong><br/>Account number: <strong>09126456792</strong></div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+            <button id="reviewBtn" class="btn ghost">Review</button>
+            <button id="confirmBtn" class="btn">Confirm Reservation</button>
+          </div>
+
+          <div id="confirmationBox" class="hidden"></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- DISCLAIMER modal shown first -->
+<div id="disclaimerModal" class="modal" role="dialog" aria-modal="true">
+  <div class="box" role="document">
+    <h2>Disclaimer</h2>
+    <ul>
+      <li>No personal information will be collected on this page. Once your order is submitted you will be redirected to a Google Form to complete your order and payment confirmation.</li>
+      <li>Payment-first policy — for faster transaction, please pay first. Reservation is only completed after payment confirmation.</li>
+      <li>Pick-up only option.</li>
+      <li>Order number will be provided once reservation is confirmed.</li>
+    </ul>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;align-items:center">
+      <label style="display:flex;gap:8px;align-items:center"><input id="agreeCheckbox" type="checkbox"/> I understand</label>
+      <button id="continueBtn" class="btn" disabled>Continue to site</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* CONFIG */
+const API_URL = 'https://script.google.com/macros/s/AKfycbzpSgoZevw-NO5Ttil7dQ9LSPMCRKU0OGwuXczTCGCNzSRYpY5CEGpKTN1ywvCgyPxP/exec';
+const FORM_BASE = 'https://docs.google.com/forms/d/e/1FAIpQLSeLJyNxN004Pg1Zua2f06ZJzVIHVU9njEM3lXVuRCLjx1os0Q/viewform';
+const FORM_ORDER_FIELD = 'entry.813489840'; // prefill the order id field on the form
+
+/* STATE */
+let inventory = [];
+let cart = {}; // keyed by Book_Code -> { code, title, author, price, qty }
+let lastCreatedOrderId = null;
+
+/* HELPERS */
+const fmt = n => '₱' + Number(n).toFixed(2);
+const qs = s => document.querySelector(s);
+const qsa = s => Array.from(document.querySelectorAll(s));
+
+/* DISCLAIMER logic */
+const agreeCheckbox = qs('#agreeCheckbox');
+const continueBtn = qs('#continueBtn');
+const disclaimerModal = qs('#disclaimerModal');
+
+agreeCheckbox.addEventListener('change', () => {
+  continueBtn.disabled = !agreeCheckbox.checked;
+});
+continueBtn.addEventListener('click', () => {
+  if (!agreeCheckbox.checked) return;
+  disclaimerModal.style.display = 'none';
+  // Load inventory after user accepts
+  loadInventory();
+});
+
+/* UI: controls and elements */
+const booksGrid = qs('#booksGrid');
+const filterAuthor = qs('#filterAuthor');
+const filterGenre = qs('#filterGenre');
+const searchTitle = qs('#searchTitle');
+
+const cartTableBody = qs('#cartTable tbody');
+const totalQtyEl = qs('#totalQty');
+const grandTotalEl = qs('#grandTotal');
+const confirmationBox = qs('#confirmationBox');
+
+/* Load inventory from Apps Script */
+async function loadInventory(){
+  try{
+    booksGrid.innerHTML = 'Loading books…';
+    const res = await fetch(API_URL + '?action=getInventory');
+    const text = await res.text();
+    const data = JSON.parse(text || '[]');
+    if (!Array.isArray(data)) throw new Error('Invalid inventory data');
+    inventory = data;
+    populateFilters();
+    renderBooks(inventory);
+  } catch(err){
+    console.error('Failed loading inventory', err);
+    booksGrid.innerHTML = '<div class="muted">Failed to load books. Try reloading.</div>';
+  }
+}
+
+/* Populate author/genre selects */
+function populateFilters(){
+  const authors = new Set();
+  const genres = new Set();
+  inventory.forEach(b => { if (b.Author) authors.add(b.Author); if (b.Genre) genres.add(b.Genre); });
+
+  // populate
+  filterAuthor.innerHTML = '<option value="">All authors</option>' + [...authors].sort().map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  filterGenre.innerHTML = '<option value="">All genres</option>' + [...genres].sort().map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+}
+
+/* Render book cards */
+/* Render book cards */
+function renderBooks(list){
+  if (!list || list.length === 0) { 
+    booksGrid.innerHTML = '<div class="muted">No books found.</div>'; 
+    return; 
+  }
+  booksGrid.innerHTML = '';
+  list.forEach(book => {
+    const price = Number(book['Discounted Price'] ?? book.Price ?? 0);
+    const code = book.Book_Code ?? book.BookCode ?? '';
+    const card = document.createElement('div');
+    card.className = 'book-card';
+    card.innerHTML = `
+      <div>
+        <div style="font-weight:600">${escapeHtml(book.Title || '(No title)')}</div>
+        <div class="meta">
+          <small>${escapeHtml(book.Author || '')}</small>
+          <small class="price">${fmt(price)}</small>
+        </div>
+        <div class="small">${escapeHtml(book.Genre || '')}</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button class="btn addBtn">Add to Cart</button>
+      </div>
+    `;
+
+    // add handlers
+    card.querySelector('.addBtn').addEventListener('click', () => {
+      addToCart({
+        code,
+        title: book.Title || '',
+        author: book.Author || '',
+        price,
+        qty: 1 // always add 1 item when clicking "Add to Cart"
+      });
+    });
+
+    booksGrid.appendChild(card);
+  });
+}
+
+/* Add to cart (merge by code) */
+function addToCart(item){
+  if (!item.code) {
+    alert('Item missing Book_Code; cannot add to cart.');
+    return;
+  }
+  if (cart[item.code]) {
+    cart[item.code].qty += item.qty;
+  } else {
+    cart[item.code] = { ...item };
+  }
+  renderCart();
+}
+
+/* Render cart table */
+function renderCart(){
+  const rows = Object.values(cart);
+  cartTableBody.innerHTML = '';
+  let grand = 0;
+  let qtySum = 0;
+
+  rows.forEach((it, idx) => {
+    const subtotal = Number(it.price) * Number(it.qty);
+    grand += subtotal;
+    qtySum += Number(it.qty);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="vertical-align:middle">${escapeHtml(it.title)}<div class="small">${escapeHtml(it.author)}</div></td>
+      <td style="vertical-align:middle">
+        <input type="number" min="1" value="${it.qty}" data-code="${escapeHtml(it.code)}" style="width:70px;padding:6px;border-radius:8px;border:1px solid #eef2ff" />
+      </td>
+      <td style="text-align:right;vertical-align:middle">${fmt(subtotal)}</td>
+    `;
+    cartTableBody.appendChild(tr);
+  });
+
+  totalQtyEl.textContent = qtySum;
+  grandTotalEl.textContent = fmt(grand);
+
+  // attach input handlers
+  qsa('#cartTable input[type=number]').forEach(inp => {
+    inp.addEventListener('change', (e) => {
+      const code = e.target.getAttribute('data-code');
+      const v = Math.max(1, Number(e.target.value) || 1);
+      if (cart[code]) cart[code].qty = v;
+      renderCart();
+    });
+  });
+}
+
+/* Clear Cart */
+qs('#clearCart').addEventListener('click', () => {
+  if (!confirm('Clear cart?')) return;
+  cart = {};
+  renderCart();
+  confirmationBox.classList.add('hidden');
+});
+
+/* Filters: search / author / genre */
+searchTitle.addEventListener('input', applyFilters);
+filterAuthor.addEventListener('change', applyFilters);
+filterGenre.addEventListener('change', applyFilters);
+
+function applyFilters(){
+  const q = (searchTitle.value || '').trim().toLowerCase();
+  const a = filterAuthor.value;
+  const g = filterGenre.value;
+  const filtered = inventory.filter(b => {
+    if (q && !(String(b.Title||'').toLowerCase().includes(q))) return false;
+    if (a && String(b.Author||'') !== a) return false;
+    if (g && String(b.Genre||'') !== g) return false;
+    return true;
+  });
+  renderBooks(filtered);
+}
+
+/* REVIEW button opens simple modal with summary (here we reuse confirmationBox) */
+qs('#reviewBtn').addEventListener('click', () => {
+  const rows = Object.values(cart);
+  if (rows.length === 0) { alert('Cart is empty'); return; }
+  let html = '<strong>Review your order</strong><br/><div style="margin-top:8px">';
+  rows.forEach(r => {
+    html += `<div style="margin-bottom:6px">${escapeHtml(r.title)} — ${r.qty} × ${fmt(r.price)} = <strong>${fmt(Number(r.price)*Number(r.qty))}</strong></div>`;
+  });
+  html += `</div><div style="margin-top:8px">${'Total: ' + fmt(Object.values(cart).reduce((s,i)=>s + Number(i.price)*Number(i.qty),0))}</div>`;
+  confirmationBox.innerHTML = html;
+  confirmationBox.classList.remove('hidden');
+});
+
+/* Confirm Reservation: send to Apps Script (form-encoded data=...) */
+qs('#confirmBtn').addEventListener('click', async () => {
+  const items = Object.values(cart);
+  if (items.length === 0) { alert('Cart is empty'); return; }
+
+  // prepare payload items to match backend expectations (title, author, code, price, qty)
+  const payloadItems = items.map(i => ({
+    title: i.title, author: i.author, code: i.code, price: Number(i.price), qty: Number(i.qty)
+  }));
+
+  try {
+    // show immediate feedback
+    qs('#confirmBtn').disabled = true;
+    qs('#confirmBtn').textContent = 'Submitting…';
+
+    // send as form-encoded: data=<json>
+    const body = 'data=' + encodeURIComponent(JSON.stringify({ items: payloadItems }));
+    const resp = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+
+    const txt = await resp.text();
+    let data;
+    try { data = JSON.parse(txt); } catch(e) { throw new Error('Invalid JSON response from server: ' + txt); }
+
+    if (data && data.success) {
+      lastCreatedOrderId = data.orderID;
+      // show confirmation box with order ID and link to form
+      const formLink = FORM_BASE + (FORM_BASE.includes('?') ? '&' : '?') + FORM_ORDER_FIELD + '=' + encodeURIComponent(data.orderID);
+      confirmationBox.innerHTML = `
+        <div><strong>Reservation confirmed!</strong></div>
+        <div style="margin-top:8px">Order ID: <strong>${escapeHtml(data.orderID)}</strong></div>
+        <div style="margin-top:8px" class="muted">Click below to continue to the Google Form to complete your details & payment confirmation.</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+          <button onclick="window.open('${formLink}','_blank')">Go to form</button>
+          <button onclick="copyOrderId()">Copy Order ID</button>
+        </div>
+      `;
+      confirmationBox.classList.remove('hidden');
+      // clear cart
+      cart = {};
+      renderCart();
+    } else {
+      throw new Error(data && data.message ? data.message : 'Reservation failed');
+    }
+  } catch (err) {
+    alert('Reservation failed: ' + (err.message || err));
+    console.error('confirm error', err);
+  } finally {
+    qs('#confirmBtn').disabled = false;
+    qs('#confirmBtn').textContent = 'Confirm Reservation';
+  }
+});
+
+/* Copy Order ID helper */
+function copyOrderId(){
+  if (!lastCreatedOrderId) { alert('No order id to copy'); return; }
+  navigator.clipboard?.writeText(lastCreatedOrderId).then(()=> alert('Copied order id: ' + lastCreatedOrderId)).catch(()=> alert('Copy failed. Order ID: ' + lastCreatedOrderId));
+}
+
+/* small HTML-escape helper */
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* init: disable continue until checkbox checked (handled above), nothing more to run until user continues */
+</script>
+</body>
+</html>
