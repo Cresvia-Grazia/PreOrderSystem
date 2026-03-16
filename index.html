@@ -259,6 +259,85 @@
         }
 
         /* COPY-PASTE YOUR REMAINING 'confirmBtn' SCRIPT LOGIC HERE */
+
+        /* Confirm Reservation: send to Apps Script */
+qs('#confirmBtn').addEventListener('click', async () => {
+  const items = Object.values(cart);
+  
+  if (items.length === 0) { 
+    alert('Your cart is empty! Please add a book first.'); 
+    return; 
+  }
+
+  // Visual feedback: Disable button to prevent double-submission
+  const btn = qs('#confirmBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Processing...';
+
+  // Prepare payload
+  const payloadItems = items.map(i => ({
+    title: i.title, 
+    author: i.author, 
+    code: i.code, 
+    price: Number(i.price), 
+    qty: Number(i.qty)
+  }));
+
+  try {
+    // Send as form-encoded: data=<json>
+    const body = 'data=' + encodeURIComponent(JSON.stringify({ items: payloadItems }));
+    
+    const resp = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body
+    });
+
+    if (!resp.ok) throw new Error('Network response was not ok');
+
+    const data = await resp.json();
+
+    if (data && data.success) {
+      lastCreatedOrderId = data.orderID;
+      
+      // Build the Google Form link with pre-filled Order ID
+      const formLink = `${FORM_BASE}${FORM_BASE.includes('?') ? '&' : '?'}${FORM_ORDER_FIELD}=${encodeURIComponent(data.orderID)}`;
+      
+      // Update UI with Success Message
+      const confBox = qs('#confirmationBox');
+      confBox.innerHTML = `
+        <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl mt-4">
+          <p class="text-emerald-700 font-bold text-sm">✅ Reservation Confirmed!</p>
+          <p class="text-xs text-emerald-600 mt-1">Order ID: <span class="font-mono font-bold">${data.orderID}</span></p>
+          <div class="grid grid-cols-1 gap-2 mt-4">
+            <button onclick="window.open('${formLink}','_blank')" class="bg-emerald-600 text-white py-2 rounded-lg font-bold text-xs shadow-md">Complete Google Form</button>
+            <button onclick="copyOrderId('${data.orderID}')" class="bg-white border border-emerald-200 text-emerald-700 py-2 rounded-lg font-bold text-xs">Copy Order ID</button>
+          </div>
+        </div>
+      `;
+      confBox.classList.remove('hidden');
+      
+      // Clear cart state
+      cart = {};
+      renderCart();
+      
+    } else {
+      throw new Error(data.message || 'The server rejected the reservation.');
+    }
+  } catch (err) {
+    console.error('Reservation Error:', err);
+    alert('Oops! Reservation failed. Please check your internet or try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+
+/* Helper for copying */
+function copyOrderId(id) {
+  navigator.clipboard.writeText(id).then(() => alert('Order ID Copied!'));
+}
     </script>
 </body>
 </html>
